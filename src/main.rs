@@ -2,6 +2,7 @@
 
 mod db;
 mod models;
+mod openlibrary;
 
 use async_graphql::{
     http::{playground_source, GraphQLPlaygroundConfig},

@@ -1,6 +1,7 @@
+use anyhow::{bail, Result};
 use async_graphql::{Context, Object};
 use chrono::{DateTime, Utc};
-use sqlx::{Result, SqlitePool};
+use sqlx::SqlitePool;
 
 use self::book::{Book, BookDetails};
 
@@ -13,10 +14,14 @@ impl BookDetails {
     async fn id(&self) -> &i32 {
         &self.id
     }
-    async fn open_library_id(&self) -> &i32 {
-        &self.open_library_id
+    async fn open_library_id(&self) -> Result<&String> {
+        if let Some(open_library_id) = &self.open_library_id {
+            Ok(open_library_id)
+        } else {
+            bail!("open_library_id is None")
+        }
     }
-    async fn isbn(&self) -> &Option<i32> {
+    async fn isbn(&self) -> &Option<String> {
         &self.isbn
     }
     async fn title(&self) -> &Option<String> {
@@ -28,8 +33,8 @@ impl BookDetails {
     async fn author_key(&self) -> &Option<String> {
         &self.author_key
     }
-    async fn publish_date(&self) -> &Option<DateTime<Utc>> {
-        &self.publish_date
+    async fn publish_year(&self) -> &Option<i32> {
+        &self.publish_year
     }
     async fn last_updated(&self) -> &Option<DateTime<Utc>> {
         &self.last_updated
@@ -84,27 +89,17 @@ impl Mutation {
     async fn find_book(
         &self,
         ctx: &Context<'_>,
-        #[graphql(desc = "TODO: remove")] id: i32,
         #[graphql(desc = "title of book")] title: Option<String>,
         #[graphql(desc = "author of book")] author: Option<String>,
-    ) -> Result<BookDetails> {
-        let pool = ctx.data_unchecked::<SqlitePool>();
+    ) -> Result<Vec<BookDetails>> {
+        if title.is_none() && author.is_none() {
+            bail!("at least one of title or author must be supplied");
+        }
 
-        BookDetails::upsert(
-            pool,
-            BookDetails {
-                id: -1,
-                open_library_id: id,
-                isbn: None,
-                title,
-                author,
-                author_key: None,
-                publish_date: None,
-                last_updated: Some(Utc::now()),
-                page_count: None,
-            },
-        )
-        .await
+        let pool = ctx.data_unchecked::<SqlitePool>();
+        let details = BookDetails::search(pool, title.as_deref(), author.as_deref()).await?;
+
+        Ok(details)
     }
 
     async fn add_book(
