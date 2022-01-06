@@ -17,7 +17,8 @@ use models::{Mutation, QueryRoot};
 #[macro_use]
 extern crate rocket;
 
-extern crate dotenv;
+#[macro_use]
+extern crate dotenv_codegen;
 
 pub type BookSchema = Schema<QueryRoot, Mutation, EmptySubscription>;
 
@@ -43,11 +44,11 @@ async fn graphql_request(schema: &State<BookSchema>, request: GraphQLRequest) ->
 
 #[launch]
 async fn rocket() -> _ {
-    dotenv::dotenv().ok();
+    dotenv!("DATABASE_URL");
 
-    let connection_string =
-        std::env::var("DATABASE_STRING").expect("Missing DB string in .env file");
-    println!("DATABASE_STRING: {}", connection_string);
+    let connection_string = dotenv::var("DATABASE_URL")
+        .expect("Missing DATABASE_URL in .env file or environment variables");
+
     let pool = Db::create_pool(&connection_string)
         .await
         .expect("Failed to open pool or migrate DB");

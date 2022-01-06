@@ -1,20 +1,20 @@
 use anyhow::Result;
-use chrono::{DateTime, Utc};
+use chrono::{NaiveDateTime, Utc};
 use sqlx::SqlitePool;
 
 use crate::openlibrary::{OpenLibrary, SearchResult};
 
 #[derive(Clone, sqlx::FromRow)]
 pub struct Book {
-    pub id: i32,
+    pub id: i64,
     pub title: Option<String>,
     pub author: Option<String>,
-    pub book_details_id: Option<i32>,
+    pub book_details_id: Option<i64>,
 }
 
 impl Book {
     pub async fn list(pool: &SqlitePool) -> Result<Vec<Book>> {
-        let books = sqlx::query_as("SELECT * FROM [books]")
+        let books = sqlx::query_as!(Book, "SELECT * FROM [books]")
             .fetch_all(pool)
             .await?;
 
@@ -22,8 +22,7 @@ impl Book {
     }
 
     pub async fn get_by_id(pool: &SqlitePool, id: i32) -> Result<Option<Book>> {
-        let book = sqlx::query_as("SELECT * FROM [books] WHERE [id] = ? LIMIT 1")
-            .bind(id)
+        let book = sqlx::query_as!(Book, "SELECT * FROM [books] WHERE [id] = ? LIMIT 1", id)
             .fetch_optional(pool)
             .await?;
 
@@ -31,10 +30,12 @@ impl Book {
     }
 
     pub async fn insert(pool: &SqlitePool, book: Book) -> Result<Book> {
-        let new_book = sqlx::query_as("INSERT INTO [books] ([title], [author], [book_details_id]) VALUES (?, ?, ?) RETURNING *")
-            .bind(book.title)
-            .bind(book.author)
-            .bind(book.book_details_id)
+        let new_book = sqlx::query_as!(Book, 
+                "INSERT INTO [books] ([title], [author], [book_details_id]) VALUES (?, ?, ?) RETURNING *",
+                book.title,
+                book.author,
+                book.book_details_id,
+            )
             .fetch_one(pool)
             .await?;
 
@@ -44,15 +45,15 @@ impl Book {
 
 #[derive(Clone, sqlx::FromRow)]
 pub struct BookDetails {
-    pub id: i32,
-    pub open_library_id: Option<String>,
+    pub id: i64,
+    pub open_library_id: String,
     pub isbn: Option<String>,
     pub title: Option<String>,
     pub author: Option<String>,
     pub author_key: Option<String>,
-    pub publish_year: Option<i32>,
-    pub page_count: Option<i32>,
-    pub last_updated: Option<DateTime<Utc>>,
+    pub publish_year: Option<i64>,
+    pub page_count: Option<i64>,
+    pub last_updated: Option<NaiveDateTime>,
 }
 
 impl From<SearchResult> for BookDetails {
@@ -62,7 +63,7 @@ impl From<SearchResult> for BookDetails {
             id: -1,
             open_library_id: {
                 let (_, ol_id) = sr.key.rsplit_once('/').unwrap();
-                Some(ol_id.to_string())
+                ol_id.to_string()
             },
             isbn: match sr.isbn {
                 Some(iv) => iv
@@ -74,17 +75,16 @@ impl From<SearchResult> for BookDetails {
             title: Some(sr.title),
             author: sr.author_name.map(|an| an.first().unwrap().to_string()),
             author_key: sr.author_key.map(|ak| ak.first().unwrap().to_string()),
-            publish_year: sr.first_publish_year,
-            page_count: sr.number_of_pages_median,
-            last_updated: Some(Utc::now()),
+            publish_year: sr.first_publish_year.map(|py| py.into()),
+            page_count: sr.number_of_pages_median.map(|nop| nop.into()),
+            last_updated: Some(Utc::now().naive_utc()),
         }
     }
 }
 
 impl BookDetails {
-    pub async fn get_by_id(pool: &SqlitePool, id: i32) -> Result<Option<BookDetails>> {
-        let details = sqlx::query_as("SELECT * FROM [book_details] WHERE [id] = ? LIMIT 1")
-            .bind(id)
+    pub async fn get_by_id(pool: &SqlitePool, id: i64) -> Result<Option<BookDetails>> {
+        let details = sqlx::query_as!(BookDetails, "SELECT * FROM [book_details] WHERE [id] = ? LIMIT 1", id)
             .fetch_optional(pool)
             .await?;
 

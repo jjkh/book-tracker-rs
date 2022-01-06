@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use async_graphql::{Context, Object};
-use chrono::{DateTime, Utc};
+use chrono::NaiveDateTime;
 use sqlx::SqlitePool;
 
 use self::book::{Book, BookDetails};
@@ -11,15 +11,11 @@ pub struct QueryRoot;
 
 #[Object]
 impl BookDetails {
-    async fn id(&self) -> &i32 {
+    async fn id(&self) -> &i64 {
         &self.id
     }
-    async fn open_library_id(&self) -> Result<&String> {
-        if let Some(open_library_id) = &self.open_library_id {
-            Ok(open_library_id)
-        } else {
-            bail!("open_library_id is None")
-        }
+    async fn open_library_id(&self) -> &String {
+        &self.open_library_id
     }
     async fn isbn(&self) -> &Option<String> {
         &self.isbn
@@ -33,20 +29,20 @@ impl BookDetails {
     async fn author_key(&self) -> &Option<String> {
         &self.author_key
     }
-    async fn publish_year(&self) -> &Option<i32> {
+    async fn publish_year(&self) -> &Option<i64> {
         &self.publish_year
     }
-    async fn last_updated(&self) -> &Option<DateTime<Utc>> {
-        &self.last_updated
+    async fn last_updated(&self) -> NaiveDateTime {
+        self.last_updated.unwrap()
     }
-    async fn page_count(&self) -> &Option<i32> {
+    async fn page_count(&self) -> &Option<i64> {
         &self.page_count
     }
 }
 
 #[Object]
 impl Book {
-    async fn id(&self) -> &i32 {
+    async fn id(&self) -> &i64 {
         &self.id
     }
     async fn title(&self) -> Option<&String> {
@@ -107,7 +103,7 @@ impl Mutation {
         ctx: &Context<'_>,
         #[graphql(desc = "title of book")] title: Option<String>,
         #[graphql(desc = "author of book")] author: Option<String>,
-        #[graphql(desc = "id of the bookDetails for this book")] book_details_id: Option<i32>,
+        #[graphql(desc = "id of the bookDetails for this book")] book_details_id: Option<i64>,
     ) -> Result<Book> {
         let pool = ctx.data_unchecked::<SqlitePool>();
 
