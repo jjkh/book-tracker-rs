@@ -17,6 +17,9 @@ impl BookDetails {
     async fn open_library_id(&self) -> &String {
         &self.open_library_id
     }
+    async fn cover_id(&self) -> &Option<i64> {
+        &self.cover_id
+    }
     async fn isbn(&self) -> &Option<String> {
         &self.isbn
     }

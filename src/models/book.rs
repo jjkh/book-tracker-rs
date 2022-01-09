@@ -47,6 +47,7 @@ impl Book {
 pub struct BookDetails {
     pub id: i64,
     pub open_library_id: String,
+    pub cover_id: Option<i64>,
     pub isbn: Option<String>,
     pub title: Option<String>,
     pub author: Option<String>,
@@ -58,13 +59,13 @@ pub struct BookDetails {
 
 impl From<SearchResult> for BookDetails {
     fn from(sr: SearchResult) -> Self {
-        println!("from: {:?}", sr);
         Self {
             id: -1,
             open_library_id: {
                 let (_, ol_id) = sr.key.rsplit_once('/').unwrap();
                 ol_id.to_string()
             },
+            cover_id: sr.cover_i,
             isbn: match sr.isbn {
                 Some(iv) => iv
                     .iter()
@@ -73,8 +74,8 @@ impl From<SearchResult> for BookDetails {
                 None => None,
             },
             title: Some(sr.title),
-            author: sr.author_name.map(|an| an.first().unwrap().to_string()),
-            author_key: sr.author_key.map(|ak| ak.first().unwrap().to_string()),
+            author: sr.author_name.map(|an| an.join(", ")),
+            author_key: sr.author_key.map(|ak| ak.join(",")),
             publish_year: sr.first_publish_year.map(|py| py.into()),
             page_count: sr.number_of_pages_median.map(|nop| nop.into()),
             last_updated: Some(Utc::now().naive_utc()),
@@ -111,11 +112,12 @@ impl BookDetails {
     pub async fn upsert(pool: &SqlitePool, book_details: BookDetails) -> Result<BookDetails> {
         let details = sqlx::query_as(
             "INSERT INTO [book_details] (
-                    [open_library_id], [isbn], [title], [author], [author_key], [publish_year], [last_updated], [page_count]
+                    [open_library_id], [cover_id], [isbn], [title], [author], [author_key], [publish_year], [last_updated], [page_count]
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?
                 ) ON CONFLICT (open_library_id) DO UPDATE SET
-                      isbn         = coalesce(excluded.isbn, book_details.isbn)
+                      cover_id     = coalesce(excluded.cover_id, book_details.cover_id)
+                    , isbn         = coalesce(excluded.isbn, book_details.isbn)
                     , title        = coalesce(excluded.title, book_details.title)
                     , author       = coalesce(excluded.author, book_details.author)
                     , author_key   = coalesce(excluded.author_key, book_details.author_key)
@@ -126,6 +128,7 @@ impl BookDetails {
                 RETURNING *"
             )
             .bind(book_details.open_library_id)
+            .bind(book_details.cover_id)
             .bind(book_details.isbn)
             .bind(book_details.title)
             .bind(book_details.author)

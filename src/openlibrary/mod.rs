@@ -18,6 +18,7 @@ pub struct SearchResult {
     pub author_key: Option<Vec<String>>,
     pub author_name: Option<Vec<String>>,
     pub number_of_pages_median: Option<i32>,
+    pub cover_i: Option<i64>,
 }
 
 pub struct OpenLibrary;
