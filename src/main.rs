@@ -1,5 +1,6 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
+mod cors;
 mod db;
 mod models;
 mod openlibrary;
@@ -22,12 +23,12 @@ extern crate dotenv_codegen;
 
 pub type BookSchema = Schema<QueryRoot, Mutation, EmptySubscription>;
 
-#[get("/")]
+#[options("/graph")]
 fn index() -> &'static str {
     "Hello world!"
 }
 
-#[get("/playground")]
+#[get("/pg")]
 fn graphql_playground() -> content::Html<String> {
     content::Html(playground_source(GraphQLPlaygroundConfig::new("/graph")))
 }
@@ -57,7 +58,7 @@ async fn rocket() -> _ {
         .data(pool)
         .finish();
 
-    rocket::build().manage(schema).mount(
+    rocket::build().manage(schema).attach(cors::Cors).mount(
         "/",
         routes![index, graphql_playground, graphql_query, graphql_request],
     )
